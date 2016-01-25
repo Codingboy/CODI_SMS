@@ -6,78 +6,93 @@ CODI_SMS_send = {
 	private["_receiver","_sender"];
 	_receiver = _this select 0;
 	_message = _this select 1;
-	[[name player, _receiver, _message], "CODI_SMS_receive", true, false] call BIS_fnc_MP;
+	[name player, _receiver, _message] call CODI_SMS_receiveOwnMessage;
+	[[name player, _receiver, _message], "CODI_SMS_receiveOthersMessage", true, false] call BIS_fnc_MP;
 };
-CODI_SMS_receive = {
-	private["_receiver","_sender","_message","_partner","_state","_firstSMS","_entry","_messages","_color"];
+CODI_SMS_receiveOwnMessage = {
+	private["_receiver","_sender","_message","_firstSMS","_entry","_messages","_color"];
+	_sender = _this select 0;
+	_receiver = _this select 1;
+	_message = _this select 2;
+	_firstSMS = true;
+	{
+		_entry = _x;
+		if ((_entry select 0) == _receiver) then
+		{
+			_firstSMS = false;
+			_messages = _entry select 2;
+			_messages pushBack [_sender, serverTime, _message];
+			CODI_SMS_messages set [_forEachIndex, [_receiver, 0, _messages]];
+		};
+	}
+	forEach CODI_SMS_messages;
+	if (_firstSMS) then
+	{
+		CODI_SMS_messages pushBack [_receiver, 0, [[_sender, serverTime, _message]]];
+	};
+	if (CODI_SMS_chatOpen) then
+	{
+		switch (side player) do
+		{
+			case blufor:
+			{
+				_color = [(profilenamespace getvariable ['Map_BLUFOR_R',0]), (profilenamespace getvariable ['Map_BLUFOR_G',1]), (profilenamespace getvariable ['Map_BLUFOR_B',1]), (profilenamespace getvariable ['Map_BLUFOR_A',0.8])];
+			};
+			case opfor:
+			{
+				_color = [(profilenamespace getvariable ['Map_OPFOR_R',0]), (profilenamespace getvariable ['Map_OPFOR_G',1]), (profilenamespace getvariable ['Map_OPFOR_B',1]), (profilenamespace getvariable ['Map_OPFOR_A',0.8])];
+			};
+			case independent:
+			{
+				_color = [(profilenamespace getvariable ['Map_Independent_R',0]), (profilenamespace getvariable ['Map_Independent_G',1]), (profilenamespace getvariable ['Map_Independent_B',1]), (profilenamespace getvariable ['Map_Independent_A',0.8])];
+			};
+			case civilian:
+			{
+				_color = [(profilenamespace getvariable ['Map_Civilian_R',0]), (profilenamespace getvariable ['Map_Civilian_G',1]), (profilenamespace getvariable ['Map_Civilian_B',1]), (profilenamespace getvariable ['Map_Civilian_A',0.8])];
+			};
+		};
+		[_sender+":", _color] call CODI_SMS_fnc_insertText;
+		[_message, [1,1,1,1]] call CODI_SMS_fnc_insertText;
+	};
+};
+CODI_SMS_receiveOthersMessage = {
+	private["_receiver","_sender","_message","_firstSMS","_entry","_messages","_color"];
 	_sender = _this select 0;
 	_receiver = _this select 1;
 	_message = _this select 2;
 	if (hasInterface) then
 	{
-		if (_receiver == name player || _sender == name player) then
+		if (_receiver == name player) then
 		{
-			_partner = _sender;
-			_state = 2;
-			if (name player == _sender) then
-			{
-				_partner = _receiver;
-				_state = 0;
-			};
 			_firstSMS = true;
 			{
 				_entry = _x;
-				if ((_entry select 0) == _partner) then
+				if ((_entry select 0) == _sender) then
 				{
 					_firstSMS = false;
 					_messages = _entry select 2;
 					_messages pushBack [_sender, serverTime, _message];
-					CODI_SMS_messages set [_forEachIndex, [_partner, _state, _messages]];
+					CODI_SMS_messages set [_forEachIndex, [_sender, 2, _messages]];
 				};
 			}
 			forEach CODI_SMS_messages;
 			if (_firstSMS) then
 			{
-				CODI_SMS_messages pushBack [_partner, _state, [[_sender, serverTime, _message]]];
-			};
-			if (_partner == _sender) then
-			{
-				call CODI_SMS_notify;
+				CODI_SMS_messages pushBack [_sender, 2, [[_sender, serverTime, _message]]];
 			};
 			if (CODI_SMS_chatOpen) then
 			{
 				if (_sender == CODI_SMS_partner) then
 				{
 					_color = CODI_SMS_partnerColor;
-					if (_sender == name player) then
-					{
-						switch (side player) do
-						{
-							case blufor:
-							{
-								_color = [(profilenamespace getvariable ['Map_BLUFOR_R',0]), (profilenamespace getvariable ['Map_BLUFOR_G',1]), (profilenamespace getvariable ['Map_BLUFOR_B',1]), (profilenamespace getvariable ['Map_BLUFOR_A',0.8])];
-							};
-							case opfor:
-							{
-								_color = [(profilenamespace getvariable ['Map_OPFOR_R',0]), (profilenamespace getvariable ['Map_OPFOR_G',1]), (profilenamespace getvariable ['Map_OPFOR_B',1]), (profilenamespace getvariable ['Map_OPFOR_A',0.8])];
-							};
-							case independent:
-							{
-								_color = [(profilenamespace getvariable ['Map_Independent_R',0]), (profilenamespace getvariable ['Map_Independent_G',1]), (profilenamespace getvariable ['Map_Independent_B',1]), (profilenamespace getvariable ['Map_Independent_A',0.8])];
-							};
-							case civilian:
-							{
-								_color = [(profilenamespace getvariable ['Map_Civilian_R',0]), (profilenamespace getvariable ['Map_Civilian_G',1]), (profilenamespace getvariable ['Map_Civilian_B',1]), (profilenamespace getvariable ['Map_Civilian_A',0.8])];
-							};
-						};
-					}
-					else
-					{
-						[CODI_SMS_partner] call CODI_SMS_ackGlobal;
-					};
 					[_sender+":", _color] call CODI_SMS_fnc_insertText;
 					[_message, [1,1,1,1]] call CODI_SMS_fnc_insertText;
+					[_sender] call CODI_SMS_ackGlobal;
 				};
+			}
+			else
+			{
+				call CODI_SMS_notify;
 			};
 		};
 	};
